@@ -49,6 +49,7 @@ export const formatDate = (dateString) => {
   }
 };
 
+// Default colors (kept for backward compatibility)
 export const colors = {
   primary: '#2196F3',
   secondary: '#FFC107',

@@ -8,23 +8,62 @@ import {
   TouchableOpacity,
   Dimensions,
   AppState,
+  Vibration,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
+import { Audio } from 'expo-av';
 import { OpenFoodFactsAPI } from '../services/OpenFoodFactsAPI';
 import { StorageService } from '../services/StorageService';
-import { colors } from '../utils/helpers';
+import { useTheme } from '../context/ThemeContext';
+import { useSettings } from '../context/SettingsContext';
 
 const { width, height } = Dimensions.get('window');
 
 export default function ScannerScreen({ navigation }) {
+  const { theme } = useTheme();
+  const { settings } = useSettings();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [loading, setLoading] = useState(false);
   const [cameraKey, setCameraKey] = useState(0);
   const [isScreenFocused, setIsScreenFocused] = useState(true);
   const [appState, setAppState] = useState(AppState.currentState);
+  const [scanSound, setScanSound] = useState(null);
+
+  // Load scan sound effect
+  useEffect(() => {
+    let isMounted = true;
+    const loadScanSound = async () => {
+      if (settings.soundOnScan) {
+        try {
+          const { sound } = await Audio.Sound.createAsync(
+            require('../../assets/beep.mp3'),
+            { shouldPlay: false }
+          );
+          if (isMounted) setScanSound(sound);
+        } catch (error) {
+          console.log('Could not load scan sound:', error);
+        }
+      } else {
+        if (scanSound) {
+          await scanSound.unloadAsync();
+          if (isMounted) setScanSound(null);
+        }
+      }
+    };
+
+    loadScanSound();
+
+    return () => {
+      isMounted = false;
+      if (scanSound) {
+        scanSound.unloadAsync();
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.soundOnScan]);
 
   // Handle app state changes
   useEffect(() => {
@@ -61,25 +100,48 @@ export default function ScannerScreen({ navigation }) {
     setScanned(true);
     setLoading(true);
 
+    // Play scan feedback
+    if (settings.vibrationOnScan) {
+      Vibration.vibrate(100);
+    }
+
+    if (settings.soundOnScan && scanSound) {
+      try {
+        await scanSound.replayAsync();
+      } catch (error) {
+        console.log('Could not play scan sound:', error);
+      }
+    }
+
     try {
       const result = await OpenFoodFactsAPI.getProductByBarcode(data);
 
       if (result.success) {
-        await StorageService.saveProductToHistory(result.product);
+        if (settings.autoSaveScans) {
+          await StorageService.saveProductToHistory(result.product);
+        }
         navigation.navigate('ProductDetails', { product: result.product });
       } else {
         Alert.alert(
           'Product Not Found',
           `No product found for barcode: ${data}`,
           [
-            { text: 'Try Again', onPress: () => setScanned(false) },
+            {
+              text: 'Try Again', onPress: () => {
+                setTimeout(() => setScanned(false), settings.scanDelay * 1000);
+              }
+            },
             { text: 'Cancel', style: 'cancel' },
           ]
         );
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to lookup product. Please try again.', [
-        { text: 'OK', onPress: () => setScanned(false) },
+        {
+          text: 'OK', onPress: () => {
+            setTimeout(() => setScanned(false), settings.scanDelay * 1000);
+          }
+        },
       ]);
     } finally {
       setLoading(false);
@@ -88,19 +150,19 @@ export default function ScannerScreen({ navigation }) {
 
   if (!permission) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Requesting camera permission...</Text>
+      <View style={[styles.centerContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Requesting camera permission...</Text>
       </View>
     );
   }
 
   if (!permission.granted) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>No access to camera</Text>
+      <View style={[styles.centerContainer, { backgroundColor: theme.background }]}>
+        <Text style={[styles.errorText, { color: theme.error }]}>No access to camera</Text>
         <TouchableOpacity
-          style={styles.retryButton}
+          style={[styles.retryButton, { backgroundColor: theme.primary }]}
           onPress={requestPermission}
         >
           <Text style={styles.retryButtonText}>Grant Permission</Text>
@@ -119,6 +181,7 @@ export default function ScannerScreen({ navigation }) {
           barcodeScannerSettings={{
             barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e'],
           }}
+          autoFocus={settings.autoFocus ? 'on' : 'off'}
         />
       )}
 
@@ -177,7 +240,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
     padding: 20,
   },
   overlay: {
@@ -249,7 +311,6 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: colors.textSecondary,
   },
   loadingOverlayText: {
     marginTop: 10,
@@ -272,12 +333,10 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 18,
-    color: colors.error,
     textAlign: 'center',
     marginBottom: 20,
   },
   retryButton: {
-    backgroundColor: colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 25,

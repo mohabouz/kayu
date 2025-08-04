@@ -11,12 +11,18 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { StorageService } from '../services/StorageService';
-import { getSafetyColor, getSafetyText, formatDate, colors } from '../utils/helpers';
+import { getSafetyColor, getSafetyText, formatDate } from '../utils/helpers';
+import { useTheme } from '../context/ThemeContext';
+import { useSettings, getFontSize } from '../context/SettingsContext';
 
 export default function HistoryScreen({ navigation }) {
+  const { theme } = useTheme();
+  const { settings } = useSettings();
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const fontSizes = getFontSize(settings.fontSize);
 
   const loadHistory = async () => {
     try {
@@ -79,7 +85,7 @@ export default function HistoryScreen({ navigation }) {
 
   const renderHistoryItem = ({ item }) => (
     <TouchableOpacity
-      style={styles.historyItem}
+      style={[styles.historyItem, { backgroundColor: theme.surface }]}
       onPress={() => navigation.navigate('ProductDetails', { product: item })}
       onLongPress={() => handleRemoveItem(item.id)}
     >
@@ -87,18 +93,18 @@ export default function HistoryScreen({ navigation }) {
         {item.image ? (
           <Image source={{ uri: item.image }} style={styles.itemImage} />
         ) : (
-          <View style={[styles.itemImage, styles.placeholderImage]}>
-            <Text style={styles.placeholderText}>No Image</Text>
+          <View style={[styles.itemImage, styles.placeholderImage, { backgroundColor: theme.border }]}>
+            <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>No Image</Text>
           </View>
         )}
         <View style={styles.itemInfo}>
-          <Text style={styles.itemName} numberOfLines={2}>
+          <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={2}>
             {item.name}
           </Text>
-          <Text style={styles.itemBrand} numberOfLines={1}>
+          <Text style={[styles.itemBrand, { color: theme.textSecondary }]} numberOfLines={1}>
             {item.brand}
           </Text>
-          <Text style={styles.itemBarcode}>
+          <Text style={[styles.itemBarcode, { color: theme.textSecondary }]}>
             {item.barcode}
           </Text>
         </View>
@@ -106,7 +112,7 @@ export default function HistoryScreen({ navigation }) {
           <View style={[styles.safetyIndicator, { backgroundColor: getSafetyColor(item.safetyLevel) }]}>
             <Text style={styles.safetyText}>{getSafetyText(item.safetyLevel)}</Text>
           </View>
-          <Text style={styles.scanDate}>
+          <Text style={[styles.scanDate, { color: theme.textSecondary }]}>
             {formatDate(item.scannedAt)}
           </Text>
         </View>
@@ -116,12 +122,12 @@ export default function HistoryScreen({ navigation }) {
 
   const EmptyState = () => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyTitle}>No Scan History</Text>
-      <Text style={styles.emptyMessage}>
+      <Text style={[styles.emptyTitle, { color: theme.text }]}>No Scan History</Text>
+      <Text style={[styles.emptyMessage, { color: theme.textSecondary }]}>
         Start scanning barcodes to see your product history here
       </Text>
       <TouchableOpacity
-        style={styles.scanButton}
+        style={[styles.scanButton, { backgroundColor: theme.primary }]}
         onPress={() => navigation.navigate('Scanner')}
       >
         <Text style={styles.scanButtonText}>Start Scanning</Text>
@@ -131,19 +137,19 @@ export default function HistoryScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.loadingText}>Loading history...</Text>
+      <View style={[styles.centerContainer, { backgroundColor: theme.background }]}>
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading history...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {history.length > 0 && (
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Scan History ({history.length})</Text>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>Scan History ({history.length})</Text>
           <TouchableOpacity
-            style={styles.clearButton}
+            style={[styles.clearButton, { backgroundColor: theme.error }]}
             onPress={handleClearHistory}
           >
             <Text style={styles.clearButtonText}>Clear All</Text>
@@ -161,7 +167,7 @@ export default function HistoryScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[colors.primary]}
+            colors={[theme.primary]}
           />
         }
         ListEmptyComponent={EmptyState}
@@ -173,13 +179,11 @@ export default function HistoryScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -191,13 +195,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: colors.text,
   },
   clearButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
-    backgroundColor: colors.error,
   },
   clearButtonText: {
     color: '#FFFFFF',
@@ -212,7 +214,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   historyItem: {
-    backgroundColor: colors.surface,
     borderRadius: 12,
     marginBottom: 12,
     elevation: 2,
@@ -233,12 +234,10 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   placeholderImage: {
-    backgroundColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
   placeholderText: {
-    color: colors.textSecondary,
     fontSize: 10,
   },
   itemInfo: {
@@ -248,17 +247,14 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text,
     marginBottom: 4,
   },
   itemBrand: {
     fontSize: 14,
-    color: colors.textSecondary,
     marginBottom: 4,
   },
   itemBarcode: {
     fontSize: 12,
-    color: colors.textSecondary,
     fontFamily: 'monospace',
   },
   itemMeta: {
@@ -279,11 +275,9 @@ const styles = StyleSheet.create({
   },
   scanDate: {
     fontSize: 12,
-    color: colors.textSecondary,
   },
   loadingText: {
     fontSize: 16,
-    color: colors.textSecondary,
   },
   emptyContainer: {
     flex: 1,
@@ -294,18 +288,15 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: colors.text,
     marginBottom: 12,
   },
   emptyMessage: {
     fontSize: 16,
-    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 32,
   },
   scanButton: {
-    backgroundColor: colors.primary,
     paddingVertical: 16,
     paddingHorizontal: 32,
     borderRadius: 25,
