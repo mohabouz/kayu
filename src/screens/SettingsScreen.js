@@ -14,9 +14,12 @@ import { useTheme } from '../context/ThemeContext';
 import { useSettings, getAllergenList, getDietaryPreferences, getHealthGoals } from '../context/SettingsContext';
 import { StorageService } from '../services/StorageService';
 
+import { useNavigation } from '@react-navigation/native';
+
 export default function SettingsScreen() {
   const { theme, isDarkMode, toggleTheme } = useTheme();
   const { settings, updateSetting, exportSettings, resetSettings } = useSettings();
+  const navigation = useNavigation();
   const [showAllergenModal, setShowAllergenModal] = useState(false);
   const [showDietaryModal, setShowDietaryModal] = useState(false);
   const [showHealthGoalsModal, setShowHealthGoalsModal] = useState(false);
@@ -512,10 +515,12 @@ export default function SettingsScreen() {
         <SettingItem
           title="Privacy Policy"
           subtitle="Learn how we protect your data"
+          onPress={() => navigation.navigate('PrivacyPolicy')}
         />
         <SettingItem
           title="Terms of Service"
           subtitle="Terms and conditions for using this app"
+          onPress={() => navigation.navigate('TermsOfService')}
         />
 
         {/* App Info */}

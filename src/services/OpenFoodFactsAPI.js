@@ -28,7 +28,7 @@ export class OpenFoodFactsAPI {
   static parseProduct(product) {
     return {
       barcode: product.code,
-      name: product.product_name || 'Unknown Product',
+      name: product.product_name_en || product.product_name || 'Unknown Product',
       brand: product.brands || 'Unknown Brand',
       image: product.image_url,
       ingredients: product.ingredients || [],

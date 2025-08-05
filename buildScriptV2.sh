@@ -69,7 +69,7 @@ extract_package_name() {
 check_devices() {
   DEVICES=$(adb devices | grep -w "device" | awk '{print $1}')
   if [ -z "$DEVICES" ]; then
-    echo -e "${BOLD_YELLOW}No connected adb devices found."
+    echo -e "${BOLD_YELLOW}No connected devices found. skipping installation."
     return 1
   else
     echo "Connected devices:"
@@ -156,8 +156,17 @@ build_aab_and_install() {
   
   if [ ! -f "$BUNDLETOOL_JAR" ]; then
     echo -e "${YELLOW}Downloading bundletool.jar...${NC}"
-    wget -O "$BUNDLETOOL_JAR" https://github.com/google/bundletool/releases/download/1.18.1/bundletool-all-1.18.1.jar
+
+    if command -v wget > /dev/null 2>&1; then
+      wget -O "$BUNDLETOOL_JAR" https://github.com/google/bundletool/releases/download/1.18.1/bundletool-all-1.18.1.jar
+    elif command -v curl > /dev/null 2>&1; then
+      curl -L -o "$BUNDLETOOL_JAR" https://github.com/google/bundletool/releases/download/1.18.1/bundletool-all-1.18.1.jar
+    else
+      echo -e "${RED}Error: Neither wget nor curl is installed. Please install one to continue.${NC}"
+      exit 1
+    fi
   fi
+
 
   APK_SET_PATH="$APK_OUTPUT_DIR/app.apks"
   popd > /dev/null
