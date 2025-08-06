@@ -1,5 +1,9 @@
 # Food Scanner App
 
+<div align="center">
+  <img src="assets/icon.png" alt="Kayu Food Scanner Logo" width="120" height="120" style="border-radius: 20px;">
+</div>
+
 A React Native Expo app that scans barcodes and analyzes food products using the OpenFoodFacts API.
 
 ## Features
