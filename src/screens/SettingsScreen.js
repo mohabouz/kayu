@@ -9,6 +9,7 @@ import {
   Alert,
   Modal,
   FlatList,
+  Image,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useSettings, getAllergenList, getDietaryPreferences, getHealthGoals } from '../context/SettingsContext';
@@ -203,6 +204,14 @@ export default function SettingsScreen() {
       padding: 20,
       alignItems: 'center',
       marginTop: 20,
+    },
+    appLogo: {
+      width: 80,
+      height: 80,
+      borderRadius: 16,
+      marginBottom: 16,
+      borderWidth: 2,
+      borderColor: theme.border,
     },
     appName: {
       fontSize: 20,
@@ -525,6 +534,10 @@ export default function SettingsScreen() {
 
         {/* App Info */}
         <View style={styles.appInfo}>
+          <Image
+            source={require('../../assets/icon.png')}
+            style={[styles.appLogo, { backgroundColor: theme.surface }]}
+          />
           <Text style={styles.appName}>Kayu Barcode Scanner</Text>
           <Text style={styles.appVersion}>Version 1.0.0</Text>
         </View>

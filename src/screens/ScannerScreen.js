@@ -9,6 +9,10 @@ import {
   Dimensions,
   AppState,
   Vibration,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -31,6 +35,9 @@ export default function ScannerScreen({ navigation }) {
   const [isScreenFocused, setIsScreenFocused] = useState(true);
   const [appState, setAppState] = useState(AppState.currentState);
   const [scanSound, setScanSound] = useState(null);
+  const [manualModalVisible, setManualModalVisible] = useState(false);
+  const [manualBarcode, setManualBarcode] = useState('');
+  const [manualError, setManualError] = useState('');
 
   // Load scan sound effect
   useEffect(() => {
@@ -148,6 +155,74 @@ export default function ScannerScreen({ navigation }) {
     }
   };
 
+  const handleManualLookup = async () => {
+    if (!manualBarcode.trim()) {
+      setManualError('Please enter a barcode.');
+      return;
+    }
+
+    // Validate barcode (basic check for numbers and length)
+    const barcodeRegex = /^\d{8,18}$/;
+    if (!barcodeRegex.test(manualBarcode.trim())) {
+      setManualError('Please enter a valid barcode (8-18 digits).');
+      return;
+    }
+
+    setManualError('');
+    setLoading(true);
+    setManualModalVisible(false);
+    setScanned(true);
+
+    // Play scan feedback
+    if (settings.vibrationOnScan) {
+      Vibration.vibrate(100);
+    }
+
+    if (settings.soundOnScan && scanSound) {
+      try {
+        await scanSound.replayAsync();
+      } catch (error) {
+        console.log('Could not play scan sound:', error);
+      }
+    }
+
+    try {
+      const result = await OpenFoodFactsAPI.getProductByBarcode(manualBarcode.trim());
+
+      if (result.success) {
+        if (settings.autoSaveScans) {
+          await StorageService.saveProductToHistory(result.product);
+        }
+        navigation.navigate('ProductDetails', { product: result.product });
+      } else {
+        Alert.alert(
+          'Product Not Found',
+          `No product found for barcode: ${manualBarcode.trim()}`,
+          [
+            {
+              text: 'Try Again', onPress: () => {
+                setTimeout(() => setScanned(false), settings.scanDelay * 1000);
+              }
+            },
+            { text: 'Cancel', style: 'cancel' },
+          ]
+        );
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to lookup product. Please try again.', [
+        {
+          text: 'OK', onPress: () => {
+            setTimeout(() => setScanned(false), settings.scanDelay * 1000);
+          }
+        },
+      ]);
+    } finally {
+      setLoading(false);
+      setManualBarcode('');
+      setScanned(false);
+    }
+  };
+
   if (!permission) {
     return (
       <View style={[styles.centerContainer, { backgroundColor: theme.background }]}>
@@ -215,18 +290,99 @@ export default function ScannerScreen({ navigation }) {
               <Text style={styles.loadingOverlayText}>Looking up product...</Text>
             </View>
           ) : (
-            <TouchableOpacity
-              style={styles.resetButton}
-              onPress={() => setScanned(false)}
-              disabled={!scanned}
-            >
-              <Text style={styles.resetButtonText}>
-                {scanned ? 'Tap to scan again' : 'Ready to scan'}
-              </Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                style={styles.resetButton}
+                onPress={() => setScanned(false)}
+                disabled={!scanned}
+              >
+                <Text style={styles.resetButtonText}>
+                  {scanned ? 'Tap to scan again' : 'Ready to scan'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.resetButton, { marginTop: 16, backgroundColor: theme.primary, borderColor: theme.primary }]}
+                onPress={() => setManualModalVisible(true)}
+                disabled={loading}
+              >
+                <Text style={[styles.resetButtonText, { color: '#FFFFFF' }]}>
+                  Enter Barcode Manually
+                </Text>
+              </TouchableOpacity>
+            </>
           )}
         </LinearGradient>
       </View>
+
+      {/* Manual Barcode Entry Modal */}
+      <Modal
+        visible={manualModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setManualModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
+              Enter Barcode
+            </Text>
+
+            <TextInput
+              style={[styles.modalInput, {
+                borderColor: manualError ? theme.error : theme.border,
+                color: theme.text,
+                backgroundColor: theme.background
+              }]}
+              placeholder="e.g. 1234567890123"
+              placeholderTextColor={theme.textSecondary}
+              keyboardType="number-pad"
+              value={manualBarcode}
+              onChangeText={(text) => {
+                setManualBarcode(text);
+                if (manualError) setManualError('');
+              }}
+              autoFocus
+              maxLength={18}
+              returnKeyType="done"
+              onSubmitEditing={handleManualLookup}
+            />
+
+            {manualError ? (
+              <Text style={[styles.errorText, { color: theme.error }]}>
+                {manualError}
+              </Text>
+            ) : null}
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                onPress={() => {
+                  setManualModalVisible(false);
+                  setManualBarcode('');
+                  setManualError('');
+                }}
+                style={styles.modalButton}
+              >
+                <Text style={[styles.modalButtonText, { color: theme.textSecondary }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleManualLookup}
+                style={[styles.modalButton, styles.modalButtonPrimary]}
+              >
+                <Text style={[styles.modalButtonText, { color: theme.primary, fontWeight: 'bold' }]}>
+                  Lookup
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -345,5 +501,47 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  modalContent: {
+    width: '85%',
+    padding: 24,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  modalInput: {
+    width: '100%',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    width: '100%',
+    marginTop: 16,
+  },
+  modalButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  modalButtonPrimary: {
+    marginLeft: 16,
+  },
+  modalButtonText: {
+    fontSize: 16,
   },
 });
