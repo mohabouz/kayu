@@ -3,6 +3,8 @@
 # dependencies
 node_modules/
 
+apks/
+
 # Expo
 .expo/
 dist/
@@ -35,5 +37,3 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
-
-apks/
